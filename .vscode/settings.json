@@ -32,5 +32,8 @@
         "-L./openGL/libs"
     ],
     "clang.completion.enable":true, // 效果效果比cpptools要好
-    "clang.diagnostic.delay":300
+    "clang.diagnostic.delay": 300,
+    "files.associations": {
+        "iostream": "cpp"
+    }
 }
