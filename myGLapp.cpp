@@ -12,6 +12,7 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void processInput(GLFWwindow *window);
 void compileMyShader(unsigned int* PvertexShader, unsigned int* PfragmentShader);
 void makeTriangle(unsigned int VAO);
+void makeRectangle(unsigned int VAO);
 
 // 常量声明
 const char *vertexShaderSource =
@@ -31,17 +32,14 @@ int main()
 {
     // 初始化GLFW
     initializeGLFW();
-
     // 创建一个窗口，将窗口的上下文应用到当前的主上下文
     GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
-    if (window == NULL)
-    {
+    if (window == NULL){
         cout << "Failed to create GLFW window" << endl;
         glfwTerminate();
         return -1;
     }   
     glfwMakeContextCurrent(window);
-
     // 初始化GLAD
     if(!initializeGLAD())
         return -1;
@@ -55,7 +53,6 @@ int main()
     unsigned int vertexShader;
     unsigned int fragmentShader;
     compileMyShader(&vertexShader, &fragmentShader);
-
     // 创建着色器程序
     unsigned int shaderProgram;
     shaderProgram = glCreateProgram();
@@ -70,6 +67,10 @@ int main()
     unsigned int VAO;
     glGenVertexArrays(1, &VAO);
     makeTriangle(VAO);
+    // 创建一个矩形
+    unsigned int VAORect;
+    glGenVertexArrays(1, &VAORect);
+    makeRectangle(VAORect);
 
     // 准备引擎
     // 循环不停的渲染，及渲染循环
@@ -81,10 +82,15 @@ int main()
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // 绘制三角形
+        // 应用着色器程序
         glUseProgram(shaderProgram);
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        // 绘制三角形
+        // glBindVertexArray(VAO);
+        // glDrawArrays(GL_TRIANGLES, 0, 3);
+        // 通过EBO来绘制矩形
+        glBindVertexArray(VAORect);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
 
         // 检查触发事件
         glfwPollEvents();
@@ -155,12 +161,15 @@ void compileMyShader(unsigned int* PvertexShader, unsigned int* PfragmentShader)
 }
 
 void makeTriangle(unsigned int VAO){
+    // 绑定VAO来存储下面的顶点解释和可见性设置
+    glBindVertexArray(VAO);
+
+    // 生成VBO对象（顶点缓冲对象）
     float vertices[]{
         -0.5f, -0.5f, 0.0f,
          0.5f, -0.5f, 0.0f,
          0.0f,  0.5f, 0.0f
     };
-    // 生成VBO对象（顶点缓冲对象）
     unsigned int VBO;
     // 1是需要创建的缓存数量，&VBO是存储申请的缓存ID的地址
     glGenBuffers(1, &VBO);
@@ -174,9 +183,7 @@ void makeTriangle(unsigned int VAO){
     // GL_DYNAMIC_DRAW：数据会被改变很多（可能被保存到高速缓冲区）
     // GL_STREAM_DRAW：数据每次绘制都会改变（可能被保存到高速缓冲区）
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    
-    // 绑定VAO来存储下面的顶点解释和可见性设置
-    glBindVertexArray(VAO);
+
     // 设置如何解释定点数据
     // 第一个参数0和VertexShader中的layout(location=0)对应
     // 第二个参数代表一个顶点有几个属性，vec3
@@ -188,4 +195,36 @@ void makeTriangle(unsigned int VAO){
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
     // 设置VAO的第0个数据组可用
     glEnableVertexAttribArray(0);
+    // 解绑
+    glBindVertexArray(0);
+}
+
+void makeRectangle(unsigned int VAO){
+    // 绑定VAO
+    glBindVertexArray(VAO);
+    // 绑定VBO
+    float vertices[] = {
+        0.5f, 0.5f, 0.0f,   // 右上角
+        0.5f, -0.5f, 0.0f,  // 右下角
+        -0.5f, -0.5f, 0.0f, // 左下角
+        -0.5f, 0.5f, 0.0f   // 左上角
+    };
+    unsigned int VBO;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    // 绑定EBO
+    unsigned int indices[] = { // 注意索引从0开始
+        0, 1, 3,  // 第一个三角形
+        1, 2, 3   // 第二个三角形
+    };
+    unsigned int EBO;
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    // 设置定点属性指针
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+    glEnableVertexAttribArray(0);
+    // 解绑
+    glBindVertexArray(0);
 }
