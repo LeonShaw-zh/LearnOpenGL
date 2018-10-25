@@ -85,11 +85,11 @@ int main()
         // 应用着色器程序
         glUseProgram(shaderProgram);
         // 绘制三角形
-        // glBindVertexArray(VAO);
-        // glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
         // 通过EBO来绘制矩形
-        glBindVertexArray(VAORect);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        // glBindVertexArray(VAORect);
+        // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
         // 检查触发事件
@@ -168,7 +168,10 @@ void makeTriangle(unsigned int VAO){
     float vertices[]{
         -0.5f, -0.5f, 0.0f,
          0.5f, -0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f
+         0.0f,  0.5f, 0.0f,
+         0.0f,  0.5f, 0.0f,
+        -0.5f, 0.75f, 0.0f,
+         0.5f, 0.75f, 0.0f
     };
     unsigned int VBO;
     // 1是需要创建的缓存数量，&VBO是存储申请的缓存ID的地址
