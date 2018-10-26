@@ -3,29 +3,36 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <stdlib.h>
+#include <math.h>
 // 注意 glad的引用一定要在GLFW之前
 using namespace std;
 
 void initializeGLFW();
 int initializeGLAD();
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
-void processInput(GLFWwindow *window);
 void compileMyShader(unsigned int* PvertexShader, unsigned int* PfragmentShader);
+void linkProgram(unsigned int shaderProgram, unsigned int vertexShader, unsigned int fragmentShader);
 void makeTriangle(unsigned int VAO);
 void makeRectangle(unsigned int VAO);
+void processInput(GLFWwindow *window);
+void transmitColor(unsigned int shaderProgram);
 
 // 常量声明
 const char *vertexShaderSource =
     "#version 330 core\n"
     "layout (location = 0) in vec3 aPos;\n"
+    "layout (location = 1) in vec3 aColor;\n"
+    "out vec3 vertexColor;\n"
     "void main(){\n"
     "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+    "   vertexColor = aColor;\n"
     "}\0";
 const char *fragmentShaderSource =
     "#version 330 core\n"
+    "in vec4 vertexColor;\n"
     "out vec4 FragColor;\n"
     "void main(){\n"
-    "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+    "   FragColor = vertexColor;\n"
     "}\0";
 
 int main()
@@ -56,9 +63,7 @@ int main()
     // 创建着色器程序
     unsigned int shaderProgram;
     shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
+    linkProgram(shaderProgram, vertexShader, fragmentShader);
     // 删除着色器对象，连接后就不需要了
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
@@ -77,13 +82,16 @@ int main()
     while(!glfwWindowShouldClose(window)){
         // 检查用户的输入
         processInput(window);
-        
-        // 清空颜色
+        // 检查触发事件
+        glfwPollEvents();
+        // 清空屏幕
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         // 应用着色器程序
         glUseProgram(shaderProgram);
+        // 向着色器程序中传递vertexColor的值
+        // transmitColor(shaderProgram);
         // 绘制三角形
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -92,8 +100,6 @@ int main()
         // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
-        // 检查触发事件
-        glfwPollEvents();
         // 应用程序采用着双缓冲模式，一张在前面显示，一张在后面慢慢加载
         // Swap交换缓冲，完成立刻刷新
         glfwSwapBuffers(window);
@@ -127,13 +133,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height){
     glViewport(0, 0, width, height);
 }
 
-void processInput(GLFWwindow *window){
-    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-}
-
 void compileMyShader(unsigned int* PvertexShader, unsigned int* PfragmentShader){
-    // 创建和编译着色器
+    // 输出GPU最多支持几个定点属性
+    int nrAttributes;
+    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &nrAttributes);
+    cout << "Maximum nr of vertex attributes supported: " << nrAttributes << endl;
     // 向量着色器
     *PvertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(*PvertexShader, 1, &vertexShaderSource, NULL);
@@ -160,18 +164,22 @@ void compileMyShader(unsigned int* PvertexShader, unsigned int* PfragmentShader)
     }
 }
 
+void linkProgram(unsigned int shaderProgram, unsigned int vertexShader, unsigned int fragmentShader){
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+}
+
 void makeTriangle(unsigned int VAO){
     // 绑定VAO来存储下面的顶点解释和可见性设置
     glBindVertexArray(VAO);
 
     // 生成VBO对象（顶点缓冲对象）
     float vertices[]{
-        -0.5f, -0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f,
-        -0.5f, 0.75f, 0.0f,
-         0.5f, 0.75f, 0.0f
+         // 位置              // 颜色
+         0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // 右下
+        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // 左下
+         0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // 顶部
     };
     unsigned int VBO;
     // 1是需要创建的缓存数量，&VBO是存储申请的缓存ID的地址
@@ -195,9 +203,11 @@ void makeTriangle(unsigned int VAO){
     // 第五个参数代表每个顶点之间的距离，步长stide
     // 第六个参数代表在缓冲中起始位置的偏移量
     // 该函数规定从最近与GL_ARRAY_BUFFER绑定VBO中获取数据
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
     // 设置VAO的第0个数据组可用
     glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
     // 解绑
     glBindVertexArray(0);
 }
@@ -230,4 +240,16 @@ void makeRectangle(unsigned int VAO){
     glEnableVertexAttribArray(0);
     // 解绑
     glBindVertexArray(0);
+}
+
+void processInput(GLFWwindow *window){
+    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+}
+
+void transmitColor(unsigned int shaderProgram){
+    float timeValue = glfwGetTime();
+    float redValue = (sin(timeValue) / 2.0f) + 0.5f;
+    int vertexColor = glGetUniformLocation(shaderProgram, "vertexColor");
+    glUniform4f(vertexColor, redValue, 0.0f, 0.0f, 0.0f);
 }
